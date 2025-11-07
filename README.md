@@ -1,4 +1,7 @@
 # LoCalPFN
+
+This is the codebase pertaining to the paper [Retrieval & Fine-Tuning for In-Context Tabular Models](https://papers.nips.cc/paper_files/paper/2024/hash/c40daf14d7a6469e65116507c21faeb7-Abstract-Conference.html), published in the main conference track of [Advances in Neural Information Processing Systems 37 (NeurIPS 2024)](https://papers.nips.cc/paper_files/paper/2024).
+
 ## Preparation
 Please download the TabZilla datasets by first cloning the repo
 ```
@@ -30,10 +33,10 @@ python main.py --exp_name="localpfn" ft
 
 # Citation
 ```
-@article{thomas2024retrieval,
+@inproceedings{thomas2024retrieval,
   title={Retrieval \& Fine-Tuning for In-Context Tabular Models},
   author={Thomas, Valentin and Ma, Junwei and Hosseinzadeh, Rasa and Golestan, Keyvan and Yu, Guangwei and Volkovs, Maksims and Caterini, Anthony},
-  journal={arXiv preprint arXiv:2406.05207},
+  booktitle={Advances in Neural Information Processing Systems},
   year={2024}
 }
 ```
