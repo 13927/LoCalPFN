@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Experiment results
+results/
+*.csv
+*.log
+*.parquet
+*.pth
+*.npy
+*.npz
+events.out.tfevents.*
