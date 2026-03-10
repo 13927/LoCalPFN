@@ -6,7 +6,7 @@ import numpy as np
 import os
 import gzip
 import json
-
+import openml
 
 def compute_one_hot_embedding_for_retrieval(X, meta_data):
     cat_idx = meta_data["cat_idx"]
@@ -114,6 +114,8 @@ class PFNDataset:
 
                 self.dataset_names.append(dataset_name)
             self.dataset_names = sorted(self.dataset_names)
+        elif self.datasets == "openml":
+            self.dataset_names = [args.openml_dataset_id]
         elif self.datasets == "cc18":
             self.dataset_names = []  # TODO
         else:
@@ -164,10 +166,131 @@ class PFNDataset:
             "X_train": X_train,
             "X_valid": X_valid,
             "X_test": X_test,
+            "X_train_one_hot": X_train,
+            "X_valid_one_hot": X_valid,
+            "X_test_one_hot": X_test,
             "y_train": y_train,
             "y_valid": y_valid,
             "y_test": y_test,
             "dataset_info": {"name": args.toy_dataset_name},
+        }
+
+    @classmethod
+    def load_openml_data(cls, args, dataset_id):
+        try:
+            dataset = openml.datasets.get_dataset(dataset_id, download_all_files=False)
+        except:
+            print(f"Failed to load dataset {dataset_id}")
+            return None
+            
+        X, y, categorical_indicator, attribute_names = dataset.get_data(
+            dataset_format="dataframe", target=dataset.default_target_attribute
+        )
+        
+        # Handle categorical features
+        cat_idx = [i for i, x in enumerate(categorical_indicator) if x]
+        
+        # Preprocess X
+        from sklearn.preprocessing import LabelEncoder
+        from sklearn.impute import SimpleImputer
+        
+        # Fill NaNs temporarily for encoding
+        # For numerical, mean. For categorical, most_frequent.
+        # But to keep it simple, let's just use SimpleImputer for all first?
+        # Or better, handle per column.
+        
+        X_numpy = X.copy()
+        
+        cat_dims = []
+        for idx in cat_idx:
+            col_name = attribute_names[idx]
+            # Convert to string and fill nan
+            X_numpy[col_name] = X_numpy[col_name].astype(str).fillna("missing")
+            le = LabelEncoder()
+            X_numpy[col_name] = le.fit_transform(X_numpy[col_name])
+            cat_dims.append(len(le.classes_))
+            
+        # For numerical columns, fill NaNs with mean
+        num_idx = [i for i in range(len(attribute_names)) if i not in cat_idx]
+        for idx in num_idx:
+            col_name = attribute_names[idx]
+            X_numpy[col_name] = X_numpy[col_name].fillna(X_numpy[col_name].mean())
+            
+        X = X_numpy.to_numpy().astype(float)
+        
+        # Encode target
+        le_y = LabelEncoder()
+        y = le_y.fit_transform(y)
+        
+        dataset_info = {
+            "name": dataset.name,
+            "cat_idx": cat_idx,
+            "cat_dims": cat_dims,
+            "num_features": X.shape[1],
+            "num_classes": len(np.unique(y)),
+            "num_instances": X.shape[0]
+        }
+        
+        # Compute One-Hot
+        if args.use_one_hot_emb:
+            X_one_hot = compute_one_hot_embedding(X, dataset_info)
+        else:
+            X_one_hot = compute_one_hot_embedding_for_retrieval(X, dataset_info)
+            
+        # Split using indices to ensure consistency
+        indices = np.arange(len(X))
+        train_indices, test_indices = train_test_split(
+            indices, test_size=0.2, random_state=args.seed, stratify=y
+        )
+        train_indices, val_indices = train_test_split(
+            train_indices, test_size=0.1, random_state=args.seed, stratify=y[train_indices]
+        )
+        
+        X_train = X[train_indices]
+        X_val = X[val_indices]
+        X_test = X[test_indices]
+        
+        y_train = y[train_indices]
+        y_val = y[val_indices]
+        y_test = y[test_indices]
+        
+        X_train_one_hot = X_one_hot[train_indices]
+        X_val_one_hot = X_one_hot[val_indices]
+        X_test_one_hot = X_one_hot[test_indices]
+        
+        # Normalize
+        if not args.disable_normalize_data:
+            scaler = StandardScaler()
+            scaler.fit(X_train)
+            X_train = scaler.transform(X_train)
+            X_val = scaler.transform(X_val)
+            X_test = scaler.transform(X_test)
+            
+            X_train = np.clip(X_train, -args.clipping_val, args.clipping_val)
+            X_val = np.clip(X_val, -args.clipping_val, args.clipping_val)
+            X_test = np.clip(X_test, -args.clipping_val, args.clipping_val)
+            
+            scaler_oh = StandardScaler()
+            scaler_oh.fit(X_train_one_hot)
+            X_train_one_hot = scaler_oh.transform(X_train_one_hot)
+            X_val_one_hot = scaler_oh.transform(X_val_one_hot)
+            X_test_one_hot = scaler_oh.transform(X_test_one_hot)
+            
+            X_train_one_hot = np.clip(X_train_one_hot, -args.clipping_val, args.clipping_val)
+            X_val_one_hot = np.clip(X_val_one_hot, -args.clipping_val, args.clipping_val)
+            X_test_one_hot = np.clip(X_test_one_hot, -args.clipping_val, args.clipping_val)
+            
+        return {
+            "X_train": X_train,
+            "X_valid": X_val,
+            "X_test": X_test,
+            "X_train_one_hot": X_train_one_hot,
+            "X_valid_one_hot": X_val_one_hot,
+            "X_test_one_hot": X_test_one_hot,
+            "y_train": y_train,
+            "y_valid": y_val,
+            "y_test": y_test,
+            "dataset_info": dataset_info,
         }
 
     @classmethod
@@ -278,6 +401,9 @@ class PFNDataset:
         elif self.datasets == "tabzilla":
             for dataset_name in self.dataset_names:
                 yield PFNDataset.load_tabzilla_data(self.args, dataset_name)
+        elif self.datasets == "openml":
+            for dataset_id in self.dataset_names:
+                yield PFNDataset.load_openml_data(self.args, dataset_id)
         elif self.datasets == "cc18":
             pass
         else:

@@ -19,10 +19,11 @@ def parse_args():
     parser.add_argument("--inf_temperature", type=float, default=0.8)
 
     # toy dataset
-    parser.add_argument("--datasets", choices=["toy", "tabzilla"], default="tabzilla")
+    parser.add_argument("--datasets", choices=["toy", "tabzilla", "openml"], default="tabzilla")
     parser.add_argument(
         "--toy_dataset_name", choices=["moons", "blobs"], default="moons"
     )
+    parser.add_argument("--openml_dataset_id", type=int, default=31) # 31 is credit-g
     parser.add_argument("--n_samples", type=int, default=1000)
 
     # tabzilla
