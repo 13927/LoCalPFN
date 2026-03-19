@@ -1,0 +1,10 @@
+# Ignore all results and cache
+__pycache__/
+methods/__pycache__/
+results/
+!results/tabzilla/*_summary.csv
+*.pyc
+
+# Ignore reproduction scripts we created locally
+run_full_reproduction.bat
+summarize_results.py
