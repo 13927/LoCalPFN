@@ -3,6 +3,7 @@ __pycache__/
 methods/__pycache__/
 results/
 !results/tabzilla/*_summary.csv
+!results/tabzilla/*/results.csv
 *.pyc
 
 # Ignore reproduction scripts we created locally
